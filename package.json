@@ -1,0 +1,28 @@
+{
+  "name": "redvidtest",
+  "version": "1.0.0",
+  "description": "Testing live video streaming from webcam using red5",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ovid2020/RedVidTest.git"
+  },
+  "keywords": [
+    "red5",
+    "streaming",
+    "video"
+  ],
+  "author": "Vincent Barilla",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Ovid2020/RedVidTest/issues"
+  },
+  "homepage": "https://github.com/Ovid2020/RedVidTest#readme",
+  "dependencies": {
+    "express": "^4.14.0",
+    "nodemon": "^1.10.2"
+  }
+}
