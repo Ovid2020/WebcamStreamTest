@@ -16,54 +16,58 @@
   </head>
   <body>
     LOCAL VIDEO
-    <video id="localVideo" autoplay="true"></video>
+    <video id="localVideo" autoplay="true" muted></video>
     <br>
     REMOTE VIDEO
-    <video id="remoteVideo" autoplay="true"></video>
+    <video id="remoteVideo" autoplay="true" muted></video>
 
 
     <script>
 
-      var signalingChannel = io("http://localhost:3000");
+      var signalingChannel = io();
       var pc;
-      var configuration = {iceServers: null};
+      var configuration = {'iceServers': [{'url': 'stun:stun.services.mozilla.com'}, {'url': 'stun:stun.l.google.com:19302'}]};
       var localVideo = document.querySelector("#localVideo");
       var remoteVideo = document.querySelector("#remoteVideo");
 
       // run start(true) to initiate a call
       function start(isCaller) {
-        console.log("here");
-        pc = new RTCPeerConnection(null);
-        console.log("not here");
+
+        pc = new RTCPeerConnection(configuration);
         // send any ice candidates to the other peer
         pc.onicecandidate = function (evt) {
           //signalingChannel.send(JSON.stringify({ "candidate": evt.candidate }));
+          console.log("~*~ onicecandidate is firing with evt = ", evt);
           signalingChannel.emit('send candidate', JSON.stringify({ "candidate": evt.candidate }));
         };
 
         // once remote stream arrives, show it in the remote video element
         pc.onaddstream = function (evt) {
+          console.log("~++~ onaddstream is firing with evt = ", evt);
           remoteVideo.src = window.URL.createObjectURL(evt.stream);
         };
 
         var handleVideo = function (stream) {
-
+          console.log("~&&&~ handleVideo is firing with stream = ", stream);
           localVideo.src = window.URL.createObjectURL(stream);
           pc.addStream(stream);
 
+
           if (isCaller) {
-            pc.createOffer(gotDescription);
+            pc.createOffer(gotDescription, errorGettingDescription);
           } else {
             pc.createAnswer(pc.remoteDescription, gotDescription);
           }
 
           function gotDescription(desc) {
+            console.log("~*#### gotDescription is firing with desc = ", desc);
             pc.setLocalDescription(desc);
             signalingChannel.emit('send stream', JSON.stringify({ "sdp": desc }));
           };
 
-          console.log("HANDLE VIDEO IS BEING CALLED");
-
+          function errorGettingDescription(err) {
+            console.log("There was an error getting the description. Error message: ", err);
+          }
         };
 
         var videoError = function (error) {
@@ -77,15 +81,17 @@
       };
 
       signalingChannel.on('stream from server', function(evt) {
+        //console.log("Invoking 'stream from server' socket listener. evt is: ", evt);
         if (!pc) {
           start(false);
         }
         console.log("EVT IS: ", evt);
-        console.log("EVT.DATA IS: ", JSON.parse(evt.data));
-        var signal = JSON.parse(evt.data);
+        //console.log("EVT.DATA IS: ", JSON.parse(evt.data));
+        var signal = JSON.parse(evt);
+
         
         if (signal.sdp) {
-         pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+          pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
         }
         else {
           pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
