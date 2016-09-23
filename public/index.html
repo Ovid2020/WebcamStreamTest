@@ -9,31 +9,32 @@
     <script src="https://code.jquery.com/jquery-3.1.0.min.js" integrity="sha256-cCueBR6CsyA4/9szpPfrX3s49M9vUU5BgtiJj06wt/s=" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
-
+    
     <script src='js/lib/adapter.js'></script>
+
     <script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
   </head>
   <body>
+    LOCAL VIDEO
+    <video id="localVideo" autoplay="true"></video>
+    <br>
+    REMOTE VIDEO
+    <video id="remoteVideo" autoplay="true"></video>
 
-    <video id="localVideo" autoplay ></video>
-    <video id="remoteVideo" autoplay ></video>
-
-    <div>
-      <button id="startButton">Start</button>
-      <button id="callButton">Call</button>
-      <button id="hangupButton">Hang Up</button>
-    </div>
 
     <script>
 
       var signalingChannel = io("http://localhost:3000");
       var pc;
-      var configuration = {};
+      var configuration = {iceServers: null};
+      var localVideo = document.querySelector("#localVideo");
+      var remoteVideo = document.querySelector("#remoteVideo");
 
       // run start(true) to initiate a call
       function start(isCaller) {
-        pc = new RTCPeerConnection(configuration);
-
+        console.log("here");
+        pc = new RTCPeerConnection(null);
+        console.log("not here");
         // send any ice candidates to the other peer
         pc.onicecandidate = function (evt) {
           //signalingChannel.send(JSON.stringify({ "candidate": evt.candidate }));
@@ -42,33 +43,45 @@
 
         // once remote stream arrives, show it in the remote video element
         pc.onaddstream = function (evt) {
-          $('remoteVideo').src = URL.createObjectURL(evt.stream);
+          remoteVideo.src = window.URL.createObjectURL(evt.stream);
         };
 
-        // get the local stream, show it in the local video element and send it
-        navigator.getUserMedia({ "audio": true, "video": true }, function (stream) {
-          ($'localVideo').src = URL.createObjectURL(stream);
+        var handleVideo = function (stream) {
+
+          localVideo.src = window.URL.createObjectURL(stream);
           pc.addStream(stream);
 
           if (isCaller) {
             pc.createOffer(gotDescription);
-          } else
-            pc.createAnswer(pc.remoteDescription, function(description){
-              pc.setLocalDescription(desc);
-              signalingChannel.emit('send stream', JSON.stringify({ "sdp": desc }));
-            });
+          } else {
+            pc.createAnswer(pc.remoteDescription, gotDescription);
           }
-            // function gotDescription(desc) {
-            //     pc.setLocalDescription(desc);
-            //     signalingChannel.send(JSON.stringify({ "sdp": desc }));
-            // }
-        });
-      }
 
-      signalingChannel.on('message', function(evt) {
+          function gotDescription(desc) {
+            pc.setLocalDescription(desc);
+            signalingChannel.emit('send stream', JSON.stringify({ "sdp": desc }));
+          };
+
+          console.log("HANDLE VIDEO IS BEING CALLED");
+
+        };
+
+        var videoError = function (error) {
+          console.log("ERROR! ", error)
+        };
+
+        // get the local stream, show it in the local video element and send it
+        navigator.getUserMedia({ "audio": true, "video": true }, handleVideo, videoError);
+
+
+      };
+
+      signalingChannel.on('stream from server', function(evt) {
         if (!pc) {
           start(false);
         }
+        console.log("EVT IS: ", evt);
+        console.log("EVT.DATA IS: ", JSON.parse(evt.data));
         var signal = JSON.parse(evt.data);
         
         if (signal.sdp) {
@@ -78,6 +91,11 @@
           pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
         }
       });
+    </script>
+    <script>
+      $(document).ready(function(){
+        start(true);
+      })
     </script>
   </body>
 </html>
