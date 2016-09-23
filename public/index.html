@@ -1,0 +1,84 @@
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="keywords" content="JavaScript, WebRTC" />
+    <meta name="description" content="WebRTC codelab" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1">
+
+    <script src="https://code.jquery.com/jquery-3.1.0.min.js" integrity="sha256-cCueBR6CsyA4/9szpPfrX3s49M9vUU5BgtiJj06wt/s=" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+
+    <script src='js/lib/adapter.js'></script>
+    <script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
+  </head>
+  <body>
+
+    <video id="localVideo" autoplay ></video>
+    <video id="remoteVideo" autoplay ></video>
+
+    <div>
+      <button id="startButton">Start</button>
+      <button id="callButton">Call</button>
+      <button id="hangupButton">Hang Up</button>
+    </div>
+
+    <script>
+
+      var signalingChannel = io("http://localhost:3000");
+      var pc;
+      var configuration = {};
+
+      // run start(true) to initiate a call
+      function start(isCaller) {
+        pc = new RTCPeerConnection(configuration);
+
+        // send any ice candidates to the other peer
+        pc.onicecandidate = function (evt) {
+          //signalingChannel.send(JSON.stringify({ "candidate": evt.candidate }));
+          signalingChannel.emit('send candidate', JSON.stringify({ "candidate": evt.candidate }));
+        };
+
+        // once remote stream arrives, show it in the remote video element
+        pc.onaddstream = function (evt) {
+          $('remoteVideo').src = URL.createObjectURL(evt.stream);
+        };
+
+        // get the local stream, show it in the local video element and send it
+        navigator.getUserMedia({ "audio": true, "video": true }, function (stream) {
+          ($'localVideo').src = URL.createObjectURL(stream);
+          pc.addStream(stream);
+
+          if (isCaller) {
+            pc.createOffer(gotDescription);
+          } else
+            pc.createAnswer(pc.remoteDescription, function(description){
+              pc.setLocalDescription(desc);
+              signalingChannel.emit('send stream', JSON.stringify({ "sdp": desc }));
+            });
+          }
+            // function gotDescription(desc) {
+            //     pc.setLocalDescription(desc);
+            //     signalingChannel.send(JSON.stringify({ "sdp": desc }));
+            // }
+        });
+      }
+
+      signalingChannel.on('message', function(evt) {
+        if (!pc) {
+          start(false);
+        }
+        var signal = JSON.parse(evt.data);
+        
+        if (signal.sdp) {
+         pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+        }
+        else {
+          pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+        }
+      });
+    </script>
+  </body>
+</html>
+
