@@ -15,20 +15,22 @@ io.on('connection', function(socket){
   console.log("SOCKET CONNECTED");
 
   socket.on('send candidate', function(candidate){
-    console.log('CANDIDATE: ', candidate);
-    //console.log('PARSED CANDIDATE DATA: ', JSON.parse(candidate).candidate);
     io.emit('message', candidate);
   });
 
   socket.on('send offer', function(stream){
-    //console.log('STREAM: ', stream);
-    //console.log('PARSED STREAM DATA: ', JSON.parse(stream).sdp);
     io.emit('message', stream);
   });
 
+  socket.on('disconnect call', function() {
+    console.log('A user disconnected.');
+    io.emit('disconnect call');
+  });
+
   socket.on('disconnect', function() {
-    console.log('a user disconnected.');
-  })
+    console.log('A user disconnected.');
+  });
+  
 });
 
 
