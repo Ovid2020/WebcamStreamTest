@@ -1,108 +1,200 @@
+<!-- <html>
+  <head>
+    <script src="https://code.jquery.com/jquery-3.1.0.min.js" integrity="sha256-cCueBR6CsyA4/9szpPfrX3s49M9vUU5BgtiJj06wt/s=" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+
+    <style>
+
+      #container {
+          margin: 0px auto;
+          width: 500px;
+          height: 375px;
+          border: 10px #333 solid;
+      }
+      #videoElement {
+          width: 500px;
+          height: 375px;
+          background-color: #666;
+      }
+`
+    </style>
+  </head>
+  <body>
+    <div id="container">
+      <video autoplay="true" id="videoElement">
+     
+      </video>
+      <script>
+         var $video = document.querySelector("#videoElement");
+          
+         navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia || navigator.oGetUserMedia;
+          
+         if (navigator.getUserMedia) {       
+             navigator.getUserMedia({video: true, audio: true}, handleVideo, videoError);
+         }
+          
+         function handleVideo(stream) {
+            console.log("VIDEO IS: ", $video);
+             $video.src = window.URL.createObjectURL(stream);
+             $video.play();
+             setTimeout(function(){
+              console.log(stream.getVideoTracks());
+             }, 3000)
+         }
+          
+         function videoError(e) {
+          console.log("ERROR WITH VIDEO");
+         }
+      </script>
+
+      <br>
+
+
+
+    </div> -->
 
 <!DOCTYPE html>
 <html>
+
   <head>
+
     <meta name="keywords" content="JavaScript, WebRTC" />
     <meta name="description" content="WebRTC codelab" />
     <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1">
 
-    <script src="https://code.jquery.com/jquery-3.1.0.min.js" integrity="sha256-cCueBR6CsyA4/9szpPfrX3s49M9vUU5BgtiJj06wt/s=" crossorigin="anonymous"></script>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    <title>WebRTC codelab: step 3</title>
+
+    <style>
+    </style>
+        <script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
+
+        <script src='js/lib/adapter.js'></script>
+
+    </head>
+
+    <body>
+      LOCAL VIDEO
+      <video id="localVideo" autoplay muted></video>
+      REMOTE VIDEO
+      <video id="remoteVideo" autoplay muted></video>
+
+      <div>
+        <button id="startButton">Start</button>
+        <button id="callButton">Call</button>
+        <button id="hangupButton">Hang Up</button>
+      </div>
+
+    <script>
+    var signalingChannel = io();
     
-    <script src='js/lib/adapter.js'></script>
+    var localStream, localPeerConnection, remotePeerConnection;
 
-    <script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
-  </head>
-  <body>
-    LOCAL VIDEO
-    <video id="localVideo" autoplay="true" muted></video>
-    <br>
-    REMOTE VIDEO
-    <video id="remoteVideo" autoplay="true" muted></video>
+    var localVideo = document.getElementById("localVideo");
+    var remoteVideo = document.getElementById("remoteVideo");
 
+    var startButton = document.getElementById("startButton");
+    var callButton = document.getElementById("callButton");
+    var hangupButton = document.getElementById("hangupButton");
+    startButton.disabled = false;
+    callButton.disabled = true;
+    hangupButton.disabled = true;
+    startButton.onclick = start;
+    callButton.onclick = call;
+    hangupButton.onclick = hangup;
 
-    <script>
+    function trace(text) {
+      console.log((performance.now() / 1000).toFixed(3) + ": " + text);
+    }
 
-      var signalingChannel = io();
-      var pc;
-      var configuration = {'iceServers': [{'url': 'stun:stun.services.mozilla.com'}, {'url': 'stun:stun.l.google.com:19302'}]};
-      var localVideo = document.querySelector("#localVideo");
-      var remoteVideo = document.querySelector("#remoteVideo");
+    function gotStream(stream){
+      trace("Received local stream");
+      localVideo.src = URL.createObjectURL(stream);
+      localStream = stream;
+      callButton.disabled = false;
+    }
 
-      // run start(true) to initiate a call
-      function start(isCaller) {
+    function start() {
+      trace("Requesting local stream");
+      startButton.disabled = true;
+      getUserMedia({audio:true, video:true}, gotStream,
+        function(error) {
+          trace("getUserMedia error: ", error);
+        });
+    }
 
-        pc = new RTCPeerConnection(configuration);
-        // send any ice candidates to the other peer
-        pc.onicecandidate = function (evt) {
-          //signalingChannel.send(JSON.stringify({ "candidate": evt.candidate }));
-          console.log("~*~ onicecandidate is firing with evt = ", evt);
-          signalingChannel.emit('send candidate', JSON.stringify({ "candidate": evt.candidate }));
-        };
+    function call() {
+      callButton.disabled = true;
+      hangupButton.disabled = false;
+      trace("Starting call");
 
-        // once remote stream arrives, show it in the remote video element
-        pc.onaddstream = function (evt) {
-          console.log("~++~ onaddstream is firing with evt = ", evt);
-          remoteVideo.src = window.URL.createObjectURL(evt.stream);
-        };
+      if (localStream.getVideoTracks().length > 0) {
+        trace('Using video device: ' + localStream.getVideoTracks()[0].label);
+      }
+      if (localStream.getAudioTracks().length > 0) {
+        trace('Using audio device: ' + localStream.getAudioTracks()[0].label);
+      }
 
-        var handleVideo = function (stream) {
-          console.log("~&&&~ handleVideo is firing with stream = ", stream);
-          localVideo.src = window.URL.createObjectURL(stream);
-          pc.addStream(stream);
+      var servers = null;
 
+      localPeerConnection = new RTCPeerConnection(servers);
+      trace("Created local peer connection object localPeerConnection");
+      localPeerConnection.onicecandidate = gotLocalIceCandidate;
 
-          if (isCaller) {
-            pc.createOffer(gotDescription, errorGettingDescription);
-          } else {
-            pc.createAnswer(pc.remoteDescription, gotDescription);
-          }
+      remotePeerConnection = new RTCPeerConnection(servers);
+      trace("Created remote peer connection object remotePeerConnection");
+      remotePeerConnection.onicecandidate = gotRemoteIceCandidate;
+      remotePeerConnection.onaddstream = gotRemoteStream;
 
-          function gotDescription(desc) {
-            console.log("~*#### gotDescription is firing with desc = ", desc);
-            pc.setLocalDescription(desc);
-            signalingChannel.emit('send stream', JSON.stringify({ "sdp": desc }));
-          };
+      localPeerConnection.addStream(localStream);
+      trace("Added localStream to localPeerConnection");
+      localPeerConnection.createOffer(gotLocalDescription,handleError);
+    }
 
-          function errorGettingDescription(err) {
-            console.log("There was an error getting the description. Error message: ", err);
-          }
-        };
+    function gotLocalDescription(description){
+      localPeerConnection.setLocalDescription(description);
+      trace("Offer from localPeerConnection: \n" + description.sdp);
+      remotePeerConnection.setRemoteDescription(description);
+      remotePeerConnection.createAnswer(gotRemoteDescription,handleError);
+    }
 
-        var videoError = function (error) {
-          console.log("ERROR! ", error)
-        };
+    function gotRemoteDescription(description){
+      remotePeerConnection.setLocalDescription(description);
+      trace("Answer from remotePeerConnection: \n" + description.sdp);
+      localPeerConnection.setRemoteDescription(description);
+    }
 
-        // get the local stream, show it in the local video element and send it
-        navigator.getUserMedia({ "audio": true, "video": true }, handleVideo, videoError);
+    function hangup() {
+      trace("Ending call");
+      localPeerConnection.close();
+      remotePeerConnection.close();
+      localPeerConnection = null;
+      remotePeerConnection = null;
+      hangupButton.disabled = true;
+      callButton.disabled = false;
+    }
 
+    function gotRemoteStream(event){
+      remoteVideo.src = URL.createObjectURL(event.stream);
+      trace("Received remote stream");
+    }
 
-      };
+    function gotLocalIceCandidate(event){
+      if (event.candidate) {
+        remotePeerConnection.addIceCandidate(new RTCIceCandidate(event.candidate));
+        trace("Local ICE candidate: \n" + event.candidate.candidate);
+      }
+    }
 
-      signalingChannel.on('stream from server', function(evt) {
-        //console.log("Invoking 'stream from server' socket listener. evt is: ", evt);
-        if (!pc) {
-          start(false);
-        }
-        console.log("EVT IS: ", evt);
-        //console.log("EVT.DATA IS: ", JSON.parse(evt.data));
-        var signal = JSON.parse(evt);
+    function gotRemoteIceCandidate(event){
+      if (event.candidate) {
+        localPeerConnection.addIceCandidate(new RTCIceCandidate(event.candidate));
+        trace("Remote ICE candidate: \n " + event.candidate.candidate);
+      }
+    }
 
-        
-        if (signal.sdp) {
-          pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
-        }
-        else {
-          pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
-        }
-      });
-    </script>
-    <script>
-      $(document).ready(function(){
-        start(true);
-      })
+    function handleError(){}
+
     </script>
   </body>
 </html>
-
