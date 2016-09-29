@@ -8,36 +8,58 @@
     <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1">
 
     <script src="https://code.jquery.com/jquery-3.1.0.min.js" integrity="sha256-cCueBR6CsyA4/9szpPfrX3s49M9vUU5BgtiJj06wt/s=" crossorigin="anonymous"></script>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
     <script src='js/lib/adapter.js'></script>
-    <style>
-
-      #container {
-          margin: 0px auto;
-          width: 500px;
-          height: 375px;
-          border: 10px #333 solid;
-      }
-      .videoElement {
-          width: 300px;
-          height: 300px;
-          background-color: #666;
-     }
-
-    </style>
     <script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
+    
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <style>
+      .videoElement {
+        background-color: #888;
+        position: relative;
+        width: 100%;
+        height: 100%;
+        resize: both;
+      }
+      .vidBox {
+        height: 350px;
+        position: relative;
+        resize: both !important;
+      }
+      button {
+        position: relative;
+        width: 100%;
+        text-align: center;
+      } 
+      .button-row {
+        margin: 2em;
+      }
+    </style>
   </head>
   <body>
-    LOCAL VIDEO
-    <video id="localVideo" class="videoElement" autoplay="true"></video>
-    <br>
-    <button id="startButton">Start</button>
-    <button id="callButton">Call</button>
-    <button id="stopButton">Hang Up</button>
-    <br>
-    REMOTE VIDEO
-    <video id="remoteVideo" class="videoElement" autoplay="true"></video>
+    <div class="row">
+      LOCAL VIDEO
+      <div class="col-md-6 col-md-offset-3 vidBox">
+        <video id="localVideo" class="videoElement" autoplay="true"></video>
+      </div>
+    </div>  
+    <div class="row button-row">
+      <div class="col-md-2 col-md-offset-3">
+        <button id="startButton">Start</button>
+      </div>  
+      <div class="col-md-2">
+        <button id="callButton">Call</button>
+      </div>
+      <div class="col-md-2">
+        <button id="stopButton">Hang Up</button>
+      </div>  
+    </div>
+    <div class="row">
+      REMOTE VIDEO
+      <div class="col-md-6 col-md-offset-3 vidBox">
+        <video id="remoteVideo" class="videoElement" autoplay="true"></video>
+      </div>
+    </div>
     <br>
     <br>
 
@@ -139,13 +161,11 @@
         }
       });
 
+      // On the disconnect call event (which can come from either caller or callee) terminates the p2p connection. 
       signalingChannel.on('disconnect call', function(){
         pc.close();
         pc = undefined;
       });
-
-    </script>
-    <script>
 
       $('#stopButton').on('click', function(){
         signalingChannel.emit('disconnect call');
